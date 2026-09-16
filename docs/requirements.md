@@ -165,7 +165,7 @@
 - パッケージ名 `_kyodaishiki` は `shells/` 内で絶対 import されているため固定。
 - `__shell__.py` が `%USERPROFILE%\code\kyodaishiki2` を `sys.path` に追加するなど、作者環境のパスがハードコードされている箇所がある。
 - インデントはタブ。`shells/` の一部にスペース混在あり。
-- `_kyodaishiki/` 配下に独立した `.git`（origin: github.com/tetsuya111/kyodaishiki）が入れ子で存在する。
+- `_kyodaishiki/` はかつて独立したリポジトリ（github.com/tetsuya111/kyodaishiki）だったが、現在はルートリポジトリで直接追跡している。
 
 ## 7. 既知の課題（コードから確認できたもの）
 
@@ -175,8 +175,7 @@
 | `shells/__site__.py` が存在しない外部パッケージ `myutil.site` を import している。 | `_kyodaishiki/shells/__site__.py` |
 | `Index.finditer` が未 import の `re` と存在しない `self.data` 属性を参照している（未使用と思われる）。 | `_kyodaishiki/__index__.py` |
 | `TOT_DB.appendCSM` が `override` 引数を `appendTOT` に渡していない。 | `_kyodaishiki/__db__.py` |
-| 作業用ファイル（`shells/a`, `a.html`, `a.py`, `a_.py`, `h`, `*.bu`, `.link.py.swo`）がリポジトリに混入している。 | `_kyodaishiki/shells/` |
-| `requirements.txt`、テスト、`.gitignore` が存在しない。 | ルート |
+| `requirements.txt`、テストが存在しない。 | ルート |
 
 ## 8. 今後の要件候補（未着手）
 

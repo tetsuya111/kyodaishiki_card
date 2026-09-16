@@ -7,7 +7,7 @@ inclusion: always
 ```
 code/
 ├── _main.py              # エントリポイント（_kyodaishiki.main() を呼ぶだけ）
-├── _kyodaishiki/         # 本体パッケージ（入れ子の .git あり）
+├── _kyodaishiki/         # 本体パッケージ
 │   ├── __main__.py       # CLI 引数解釈と起動分岐
 │   ├── __shell__.py      # 対話シェル階層（Loader / Home / DB / Client）
 │   ├── __db__.py         # カード DB（TagDB / CardDB / HomeDB）

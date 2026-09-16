@@ -62,7 +62,7 @@ Claude Code とのやり取りではコンテキスト消費（トークン使�
 - **Windows 前提のコード**である。`%USERPROFILE%` などの環境変数展開、`winshell`（ごみ箱削除）、`sjis` でのサブプロセス出力デコード、`enter.bat`/`exit.bat` といった Windows 依存箇所が多い。修正時に他 OS 対応を勝手に持ち込まない（対応する場合は spec を切る）。
 - コアのインデントは**タブ**で統一されている。編集時は既存ファイルのインデント（タブ）に合わせること。`shells/` の一部にスペース混在があるが、そちらも既存に合わせる。
 - コアと `shells/` は `from _kyodaishiki import __shell__` のようにパッケージ名を固定して参照している。パッケージ名 `_kyodaishiki` を変更する場合は `shells/` 全体の import も追随が必要。
-- `_kyodaishiki/` 配下には**独立した `.git`**（origin: `https://github.com/tetsuya111/kyodaishiki`）が入れ子で存在する。ルートリポジトリからはサブモジュールとしてではなく通常ディレクトリとして扱われているため、コミット時は入れ子リポジトリの扱い（サブモジュール化するか `.git` を外すか）を意識すること。
+- `_kyodaishiki/` はかつて独立したリポジトリ（origin: `https://github.com/tetsuya111/kyodaishiki`）だった。入れ子の `.git` は 2026-09-16 に取り除き、現在はルートリポジトリで通常ディレクトリとして追跡している。旧履歴（1 コミット）が必要な場合は上記 origin を参照する。
 - 自動テストは存在しない。動作確認は `python -c "import _kyodaishiki"` による import チェックと、`python _main.py` での対話シェル起動で行う。対話シェルは `%USERPROFILE%\kyodaishiki2\default_loader_home` にディレクトリを作成し、`127.0.0.1:10000`（Home サーバー）と `127.0.0.1:31103`（DNS）を bind しようとするため、確認目的で不用意に起動しない。
 - 依存ライブラリは `requirements.txt` が存在せず、現在の環境に手動インストールされている（一覧は [docs/architecture.md](docs/architecture.md) の依存関係を参照）。依存を追加する場合はドキュメントも更新すること。
-- `shells/` 配下の `a`、`a.html`、`a.py`、`a_.py`、`h`、`*.bu`、`.*.swo` は作業用の一時ファイルであり、仕様の根拠にしないこと。
+- `__pycache__/`、`*.pyc`、`*.swo`、`*.bu` は `.gitignore` で除外している。作業用の一時ファイルを `shells/` に置かないこと（置いた場合は仕様の根拠にしない）。

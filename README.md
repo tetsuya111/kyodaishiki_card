@@ -74,4 +74,4 @@ code/
 └── README.md
 ```
 
-`_kyodaishiki/` 配下には独立した `.git`（origin: `https://github.com/tetsuya111/kyodaishiki`）が入れ子で存在します。
+`_kyodaishiki/` はかつて独立したリポジトリ（`https://github.com/tetsuya111/kyodaishiki`）でしたが、現在はこのリポジトリで直接追跡しています。

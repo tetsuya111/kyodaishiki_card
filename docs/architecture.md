@@ -9,7 +9,7 @@
 ```
 code/                               # ルートリポジトリ（branch: claude / main）
 ├── _main.py                        # エントリポイント: import _kyodaishiki; _kyodaishiki.main()
-├── _kyodaishiki/                   # 本体パッケージ（入れ子の .git あり）
+├── _kyodaishiki/                   # 本体パッケージ（旧 tetsuya111/kyodaishiki を取り込んだもの）
 │   ├── __init__.py                 # from .__main__ import main
 │   ├── __main__.py                 # CLI 引数解釈（docopt）、Loader/Home/DB の起動分岐
 │   ├── __shell__.py                # 対話シェル階層（BaseShell〜HomeLoader）
@@ -21,7 +21,6 @@ code/                               # ルートリポジトリ（branch: claude 
 │   ├── _util.py                    # Query パーサ、コマンド/Docs 定義、ソケット受信、日付ユーティリティ
 │   ├── __utils__.py                # _util の再エクスポート
 │   ├── _path.py                    # AuHSShell（sys.path 追加 / import / set）
-│   ├── __server__.py.bu            # バックアップ（無視）
 │   └── shells/                     # 拡張シェル・スクリプト群（後述）
 ├── docs/                           # 本ドキュメント群
 ├── .kiro/steering/                 # product.md / tech.md / structure.md
@@ -203,7 +202,7 @@ tot.txt  : 42,46 50,54,-8,60,64                                       # nameGrou
 | ドメイン別カード | `book.py`, `bookmeter.py`, `reference_book.py`, `shiori.py`, `review.py`, `study.py`, `category.py`, `userid.py`, `link.py`, `picture.py`, `__profile__.py` |
 | 外部連携／クローラ | `crawl.py`, `wikipedia.py`, `youtube.py`, `__youtube__.py`, `twitter.py`, `instagram.py`, `nichan.py`, `github.py`, `__selenium__.py`, `__site__.py` |
 | その他 | `mecab.py`, `upload.py`, `happymail.py`, `pcmax.py`, `__binalli__.py` |
-| 作業用（無視） | `a`, `a.html`, `a.py`, `a_.py`, `h`, `auhs3_util.py.bu`, `.link.py.swo`, `vlc-help.txt` |
+| （削除済み） | 作業用ファイル（`a`, `a.html`, `a.py`, `a_.py`, `h`, `vlc-help.txt`, `*.bu`, `*.swo`）と `_xvideos.py`, `select2_gui.py` は 2026-09-16 に削除 |
 
 ## 9. 依存関係
 
