@@ -172,7 +172,7 @@
 | 課題 | 箇所 |
 |---|---|
 | `from . import __path__` はモジュールではなくパッケージ属性を import しており、意図した `_path` モジュールは読み込まれていない（`shells/augment_hs.py` 側で `_path` を明示 import しているため実害は限定的）。 | `_kyodaishiki/__shell__.py:7` |
-| `shells/__site__.py` が存在しない外部パッケージ `myutil.site` を import している。 | `_kyodaishiki/shells/__site__.py` |
+| `shells/bookmeter.py` が存在しない外部パッケージ `myutil.site` を import している。 | `_kyodaishiki/shells/bookmeter.py` |
 | `Index.finditer` が未 import の `re` と存在しない `self.data` 属性を参照している（未使用と思われる）。 | `_kyodaishiki/__index__.py` |
 | `TOT_DB.appendCSM` が `override` 引数を `appendTOT` に渡していない。 | `_kyodaishiki/__db__.py` |
 | `requirements.txt`、テストが存在しない。 | ルート |
