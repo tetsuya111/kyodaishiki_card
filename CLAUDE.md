@@ -25,13 +25,15 @@
 - [docs/requirements.md](docs/requirements.md) — 要件定義書（用語、機能要件、非機能要件、制約、既知の課題）
 - [docs/architecture.md](docs/architecture.md) — プロジェクト構成（起動フロー、モジュール/クラス階層、データモデル、永続化ファイル形式、ネットワーク構成、拡張機構）
 - [docs/cli.md](docs/cli.md) — 対話シェルの階層ごとのコマンドリファレンス
+- [docs/requirements-best-practices.md](docs/requirements-best-practices.md) — 要件定義（[.kiro/specs/](.kiro/specs/README.md) の requirements.md）を書く際のベストプラクティス
+- [docs/design-doc-best-practices.md](docs/design-doc-best-practices.md) — 設計ドキュメント（[.kiro/specs/](.kiro/specs/README.md) の design.md）を書く際のベストプラクティス
 
 ## 開発ワークフロー（`.kiro/`）
 
 AWS Kiro の Steering / Specs / Agent Hooks の考え方を `.kiro/` 配下で再現する。
 
 - [.kiro/steering/](.kiro/steering/) — 常時参照される永続的なプロジェクトコンテキスト（product.md / tech.md / structure.md）。詳細は `docs/` にあり、steering からはリンクのみ行う。
-- `.kiro/specs/` — 機能ごとの requirements.md → design.md → tasks.md。**現時点では未作成**。新機能や既存機能の大きな変更に着手する際は、実装より先に `.kiro/specs/<feature-slug>/` を作成してから進めること。
+- [.kiro/specs/](.kiro/specs/README.md) — 機能ごとの requirements.md → design.md → tasks.md。新機能や既存機能の大きな変更に着手する際は、実装より先に `_template/` を元に `.kiro/specs/<feature-slug>/` を作成し、requirements → design → tasks の順に進めること。現在のスペック一覧は README を参照。
 - `.kiro/hooks/` — イベント駆動の自動化。**現時点では未作成**（`.claude/settings.json` も未設定）。
 
 ## 作業ログ

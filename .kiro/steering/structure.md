@@ -20,8 +20,10 @@ code/
 │   └── shells/           # 拡張シェル・スクリプト群（実験的）
 ├── docs/                 # requirements.md / architecture.md / cli.md
 ├── logs/                 # 作業ログ（<yyyymmdd_hhMMss>_<種別>_<内容>.md）
+├── tests/                # pytest テスト（automated-testing スペックで整備予定）
 ├── .kiro/
-│   └── steering/         # 常時参照されるプロジェクトコンテキスト（このファイルを含む）
+│   ├── steering/         # 常時参照されるプロジェクトコンテキスト（このファイルを含む）
+│   └── specs/            # 機能ごとの requirements.md / design.md / tasks.md（_template/ に雛形）
 ├── CLAUDE.md             # 索引。詳細は docs/ と .kiro/ を参照
 └── README.md
 ```
