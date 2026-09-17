@@ -160,6 +160,7 @@
 | FR-11.7 | 対話履歴を `<home>/_llm/history/<セッション>.jsonl` に保存し、`/history ls|show|rm` で参照・削除できる。`/clear` は新しいセッションを開始し、保存済みファイルは消さない。 |
 | FR-11.8 | `python -m _kyodaishiki.shells.llm [--home-dir <dname>] <input>...` で、シェルを起動せずに 1 コマンドまたは 1 発話を処理できる。 |
 | FR-11.9 | 認証情報（`ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN`、`VOYAGE_API_KEY`）が無い場合は該当機能を無効化し、必要な環境変数名を表示する。未対応のプロバイダ名は対応一覧を表示して中止する。 |
+| FR-11.10 | `/rag top [<n>]` で対話 1 回あたりに参照するカードの枚数を表示・変更できる（1〜100 の整数、既定 15）。値は `<home>/_llm/config.json` の `top_k` に保存する。保存値が範囲外の場合は警告を表示して 15 を用いる（ファイルは書き換えない）。`/rag last -n <n>` で参照カードの表示を先頭 n 件に絞れる。どちらも LLM のツール（`rag_top` / `rag_last`）から実行できる。 |
 
 ## 5. 非機能要件
 

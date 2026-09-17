@@ -44,7 +44,8 @@ class Docs:
 		rag (s|search) [(-D <db>)] [(-n <n>)] <query>...
 		rag (on|off)
 		rag use [<db>]
-		rag last
+		rag top [<n>]
+		rag last [(-n <n>)]
 	"""
 	HISTORY = """
 	Usage:
@@ -65,11 +66,12 @@ LLM がコマンドの実行を提案した場合は、実行前に y/n の許�
   /rag add <dbid>...                 DB のカードを RAG に登録（差分登録、* ワイルドカード可）
   /rag rm <dbid>...                  DB を RAG から削除
   /rag ls                            登録済み DB の一覧
-  /rag search [-D <dbid>] [-n <n>] <query>...   RAG からカードを検索
+  /rag search [-D <dbid>] [-n <n>] <query>...   RAG からカードを検索（-n 省略時は /rag top の枚数）
   /rag on | /rag off                 対話時の自動検索の有効／無効
   /rag use [<dbid>]                  対話時の検索対象 DB を限定（引数なしで解除）
-  /rag last                          直前の応答で参照したカード
-  /model                             対話用 LLM と埋め込みモデルの表示
+  /rag top [<n>]                     対話で参照するカードの枚数の表示／変更（1〜100、既定 15。設定は保存される）
+  /rag last [-n <n>]                 直前の応答で参照したカード（-n で先頭 n 件だけ表示）
+  /model                             対話用 LLM と埋め込みモデル、RAG の状態（on/off・参照枚数・対象 DB）の表示
   /usage                             トークン使用量（直前／累計）
   /tools on | /tools off             自然言語からのコマンド実行（ツール呼び出し）の有効／無効
   /clear                             対話履歴をクリア（新しいセッション）
@@ -105,7 +107,7 @@ DEFAULTS = {
 	"llm_model": "claude-opus-5",
 	"embed_provider": "voyage",
 	"embed_model": "voyage-4-large",
-	"top_k": 5,
+	"top_k": 15,
 	"context_max_chars": 8000,
 	"chunk_tokens": 1000,
 	"max_tokens": 16000,
@@ -116,6 +118,21 @@ DEFAULTS = {
 	"tool_max_rounds": 5,
 	"tool_result_max_chars": 4000,
 }
+
+TOP_K_MIN = 1
+TOP_K_MAX = 100
+
+
+def parse_count(text, lo, hi=None):
+	"""text を整数として解釈し lo <= n <= hi（hi が None なら上限なし）なら n、そうでなければ None を返す。"""
+	try:
+		n = int(str(text).strip())
+	except (TypeError, ValueError):
+		return None
+	if n < lo or (hi is not None and n > hi):
+		return None
+	return n
+
 
 ENV_KEYS = {
 	"llm_provider": "KYODAISHIKI_LLM_PROVIDER",
@@ -166,6 +183,16 @@ class Config:
 		for key, value in (options or {}).items():
 			if value is not None:
 				self.data[key] = value
+		self.__dict__["warnings"] = []
+		self._validate_top_k()
+
+	def _validate_top_k(self):
+		"""top_k が 1〜100 の整数でなければ既定値を使う（config.json へは書き戻さない）。"""
+		value = self.data.get("top_k")
+		if isinstance(value, int) and not isinstance(value, bool) and TOP_K_MIN <= value <= TOP_K_MAX:
+			return
+		self.data["top_k"] = DEFAULTS["top_k"]
+		self.warnings.append("{0} の top_k（{1}）が {2}〜{3} の整数ではないため、{4} を使います。".format(self.FILE, json.dumps(value, ensure_ascii=False), TOP_K_MIN, TOP_K_MAX, DEFAULTS["top_k"]))
 
 	def __getattr__(self, key):
 		data = self.__dict__.get("data", {})
@@ -742,7 +769,12 @@ class ToolRegistry:
 		self._add("rag_use", "対話時の検索対象を特定の DB に限定する。dbid を省略すると限定を解除する。",
 			{"dbid": {"type": "string", "description": "DB ID（省略で解除）"}}, [],
 			lambda i: "/rag use" + (" " + _quote(i["dbid"]) if i.get("dbid") else ""))
-		self._add("rag_last", "直前の応答で参照したカードの一覧を表示する。", {}, [], lambda i: "/rag last")
+		self._add("rag_top", "対話 1 回あたりに参照するカードの枚数を表示・変更する。n を省略すると現在値を表示する。ユーザーが『参照するカードを〜枚にして』と明示的に頼んだときだけ n を指定する。値は保存され、以降のすべての発話に適用される。",
+			{"n": {"type": "integer", "minimum": TOP_K_MIN, "maximum": TOP_K_MAX, "description": "参照枚数（1〜100）。省略時は現在値の表示"}}, [],
+			lambda i: "/rag top" + (" " + str(int(i["n"])) if i.get("n") is not None else ""))
+		self._add("rag_last", "直前の応答で参照したカードの一覧を表示する。n を指定すると先頭 n 件だけ表示する。",
+			{"n": {"type": "integer", "minimum": 1, "description": "表示する枚数。省略時は全件"}}, [],
+			lambda i: "/rag last" + (" -n " + str(int(i["n"])) if i.get("n") is not None else ""))
 		self._add("model_info", "現在の対話用 LLM と埋め込みモデルを表示する。", {}, [], lambda i: "/model")
 		self._add("usage_info", "トークン使用量（直前／累計）を表示する。", {}, [], lambda i: "/usage")
 		self._add("history_list", "保存済みの対話履歴（セッション）の一覧を表示する。", {}, [], lambda i: "/history ls")
@@ -929,6 +961,7 @@ class LLMShell(__shell__.BaseShell3):
 			self.stdout.write("[warn] {0}\n対話は無効です（/rag コマンドは使えます）。\n".format(self.llm_error))
 		if self.embed_error:
 			self.stdout.write("[warn] {0}\nRAG の登録・検索は無効です。\n".format(self.embed_error))
+		self._warn_config(self.stdout)
 		self._warn_model_mismatch(self.stdout)
 		self.history_store.new_session()
 		return super().start()
@@ -1032,7 +1065,7 @@ class LLMShell(__shell__.BaseShell3):
 	def cmd_model(self, output):
 		output.write("LLM       : {0} / {1}{2}\n".format(self.llm.name, self.llm.model, "  [credentials: NG]" if self.llm_error else ""))
 		output.write("Embedding : {0}{1}\n".format(self.embed_model_id(), "  [credentials: NG]" if self.embed_error else ""))
-		output.write("RAG       : {0}{1}\n".format("on" if self.config.rag_enabled else "off", "  (use {0})".format(self.rag_dbid) if self.rag_dbid else ""))
+		output.write("RAG       : {0}  top {1}{2}\n".format("on" if self.config.rag_enabled else "off", int(self.config.top_k), "  (use {0})".format(self.rag_dbid) if self.rag_dbid else ""))
 		output.write("Tools     : {0}\n".format("on" if self.config.tools_enabled else "off"))
 		if self.llm_error:
 			output.write("[warn] {0}\n".format(self.llm_error))
@@ -1084,6 +1117,9 @@ class LLMShell(__shell__.BaseShell3):
 
 	# ---- /rag ----
 	def cmd_rag(self, args, output):
+		if args and args[0] == "top":
+			# "-5" などを docopt がオプションと解釈するため、top は docopt を通さず検証する
+			return self.rag_top(list(args[1:]), output)
 		a = self._docopt(Docs.RAG, args, output)
 		if not a:
 			return
@@ -1114,7 +1150,17 @@ class LLMShell(__shell__.BaseShell3):
 				output.write("rag use: (all)\n")
 			return
 		if a["last"]:
-			return self.rag_last(output)
+			n = None
+			if a["-n"]:
+				n = parse_count(a["<n>"], 1)
+				if n is None:
+					output.write("[error] 表示枚数は 1 以上の整数で指定してください: {0}\n".format(a["<n>"]))
+					return
+			return self.rag_last(output, n)
+
+	def _warn_config(self, output):
+		for warning in self.config.warnings:
+			output.write("[warn] {0}\n".format(warning))
 
 	def _require_embedder(self, output):
 		if self.embed_error:
@@ -1271,12 +1317,27 @@ class LLMShell(__shell__.BaseShell3):
 					output.write("--- hit chunk {0}/{1} (score={2:.2f}) ---\n{3}\n".format(chunk_no + 1, n_chunks, score, chunk_text.rstrip()))
 			output.write("-" * 72 + "\n")
 
-	def rag_last(self, output):
+	def rag_top(self, args, output):
+		"""参照枚数（top_k）の表示・変更。"""
+		if not args:
+			output.write("rag top: {0}\n".format(int(self.config.top_k)))
+			return
+		n = parse_count(args[0], TOP_K_MIN, TOP_K_MAX) if len(args) == 1 else None
+		if n is None:
+			output.write("[error] 参照枚数は {0}〜{1} の整数で指定してください: {2}\n".format(TOP_K_MIN, TOP_K_MAX, " ".join(args)))
+			return
+		self.config.set("top_k", n)
+		output.write("rag top: {0}\n".format(n))
+
+	def rag_last(self, output, n=None):
 		if not self.last_hits:
 			output.write("(no cards referenced)\n")
 			return
-		for i, hit in enumerate(self.last_hits):
+		shown = self.last_hits if n is None else self.last_hits[:n]
+		for i, hit in enumerate(shown):
 			output.write("[{0}] score={1:.2f}  DB:{2}  id={3}  {4}\n".format(i + 1, hit.score, hit.dbid.lower(), hit.card_id, hit.metadata.get("memo_head", "")))
+		if len(shown) < len(self.last_hits):
+			output.write("({0} / {1} 件を表示)\n".format(len(shown), len(self.last_hits)))
 
 	# ---- 対話 ----
 	def chat(self, text, output):

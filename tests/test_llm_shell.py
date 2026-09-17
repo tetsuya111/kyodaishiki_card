@@ -18,7 +18,8 @@ class TestConfig:
 		assert cfg.llm_provider == "claude"
 		assert cfg.embed_model == "voyage-4-large"
 		data = json.load(open(tmp_path / "config.json", encoding="utf8"))
-		assert data["top_k"] == 5
+		assert data["top_k"] == 15
+		assert cfg.top_k == 15 and cfg.warnings == []
 
 	def test_precedence_file_env_options(self, tmp_path, monkeypatch):
 		(tmp_path / "config.json").write_text(json.dumps({"llm_model": "from-file", "top_k": 9}), encoding="utf8")
@@ -607,3 +608,232 @@ class TestMain:
 	def test_default_home_dir(self, monkeypatch, tmp_path):
 		monkeypatch.setenv("KYODAISHIKI_LOADER_HOME", str(tmp_path))
 		assert llm.default_home_dir() == os.path.join(str(tmp_path), "MAIN")
+
+
+# ---------------------------------------------------------------------------
+# 参照枚数の制御（spec: rag-reference-control）
+# ---------------------------------------------------------------------------
+
+def config_path(shell):
+	return os.path.join(shell.llm_dname, "config.json")
+
+
+def saved_top_k(shell):
+	return json.load(open(config_path(shell), encoding="utf8"))["top_k"]
+
+
+class TestParseCount:
+	def test_bounds(self):
+		assert llm.parse_count("1", 1, 100) == 1
+		assert llm.parse_count("100", 1, 100) == 100
+		assert llm.parse_count("0", 1, 100) is None
+		assert llm.parse_count("101", 1, 100) is None
+		assert llm.parse_count(" 7 ", 1, 100) == 7
+
+	def test_invalid(self):
+		for text in ("abc", "", "2.5", "-5", None):
+			assert llm.parse_count(text, 1, 100) is None
+
+	def test_no_upper_bound(self):
+		assert llm.parse_count("5000", 1) == 5000
+		assert llm.parse_count("0", 1) is None
+
+
+class TestTopKConfig:
+	def test_missing_key_uses_default(self, tmp_path):
+		(tmp_path / "config.json").write_text(json.dumps({"llm_model": "m"}), encoding="utf8")
+		cfg = llm.Config(str(tmp_path))
+		assert cfg.top_k == 15 and cfg.warnings == []
+
+	@pytest.mark.parametrize("value", [5, 9, 1, 100])
+	def test_saved_value_is_kept(self, tmp_path, value):
+		text = json.dumps({"top_k": value})
+		(tmp_path / "config.json").write_text(text, encoding="utf8")
+		cfg = llm.Config(str(tmp_path))
+		assert cfg.top_k == value and cfg.warnings == []
+		assert (tmp_path / "config.json").read_text(encoding="utf8") == text
+
+	@pytest.mark.parametrize("value", [0, 101, -1, "abc", 2.5, True, None])
+	def test_invalid_saved_value_falls_back(self, tmp_path, value):
+		text = json.dumps({"top_k": value})
+		(tmp_path / "config.json").write_text(text, encoding="utf8")
+		cfg = llm.Config(str(tmp_path))
+		assert cfg.top_k == 15
+		assert len(cfg.warnings) == 1 and "top_k" in cfg.warnings[0] and "15" in cfg.warnings[0]
+		assert (tmp_path / "config.json").read_text(encoding="utf8") == text
+
+	def test_warnings_not_saved(self, tmp_path):
+		(tmp_path / "config.json").write_text(json.dumps({"top_k": 0}), encoding="utf8")
+		cfg = llm.Config(str(tmp_path))
+		cfg.set("rag_enabled", False)
+		data = json.load(open(tmp_path / "config.json", encoding="utf8"))
+		assert "warnings" not in data
+
+
+class TestRagTop:
+	def test_show_current(self, make_shell):
+		shell = make_shell()
+		assert run(shell, "/rag top") == "rag top: 15\n"
+
+	@pytest.mark.parametrize("value", [1, 30, 100])
+	def test_set_is_saved(self, make_shell, value):
+		shell = make_shell()
+		assert run(shell, "/rag top {0}".format(value)) == "rag top: {0}\n".format(value)
+		assert shell.config.top_k == value and saved_top_k(shell) == value
+		assert llm.Config(shell.llm_dname).top_k == value
+		assert run(shell, "/rag top") == "rag top: {0}\n".format(value)
+
+	@pytest.mark.parametrize("arg", ["0", "101", "abc", "-5", "2.5", "10 20"])
+	def test_invalid_is_rejected(self, make_shell, arg):
+		shell = make_shell()
+		run(shell, "/rag top 7")
+		out = run(shell, "/rag top " + arg)
+		assert out.startswith("[error]") and "1〜100" in out
+		assert shell.config.top_k == 7 and saved_top_k(shell) == 7
+
+	def test_works_while_rag_off(self, make_shell):
+		shell = make_shell()
+		run(shell, "/rag off")
+		assert run(shell, "/rag top") == "rag top: 15\n"
+		assert run(shell, "/rag top 20") == "rag top: 20\n"
+		assert saved_top_k(shell) == 20 and shell.config.rag_enabled is False
+
+	def test_model_shows_top(self, make_shell):
+		shell = make_shell()
+		assert "top 15" in run(shell, "/model")
+		run(shell, "/rag top 42")
+		assert "top 42" in run(shell, "/model")
+
+	def test_chat_and_search_use_new_value(self, make_shell):
+		shell = make_shell()
+		calls = []
+
+		def fake_search(text, n, dbid, output):
+			calls.append(n)
+			return [hit("NOTES", "card {0}".format(i)) for i in range(n)]
+		shell._search = fake_search
+		run(shell, "/rag top 2")
+		shell.llm.queue("a1", "a2")
+		run(shell, "質問")
+		assert calls == [2] and len(shell.last_hits) == 2
+		run(shell, "/rag search 何か")
+		assert calls == [2, 2]
+		run(shell, "/rag search -n 4 何か")
+		assert calls == [2, 2, 4]
+		run(shell, "/rag top 3")
+		run(shell, "質問2")
+		assert calls[-1] == 3 and len(shell.last_hits) == 3
+
+	def test_context_limit_still_applies(self, make_shell):
+		shell = make_shell()
+		shell._search = lambda text, n, dbid, output: [hit("NOTES", "x" * 1000 + str(i)) for i in range(n)]
+		run(shell, "/rag top 100")
+		shell.llm.queue("a1")
+		run(shell, "質問")
+		sent = shell.llm.calls[0]["messages"][-1]["content"]
+		context = sent[:sent.index("</cards>") + len("</cards>")]
+		assert len(context) <= int(shell.config.context_max_chars)
+		assert 0 < len(shell.last_hits) < 100
+
+	def test_startup_warning(self, home, make_shell):
+		home_obj, home_dir = home
+		dname = os.path.join(home_dir, llm.DNAME)
+		os.makedirs(dname, exist_ok=True)
+		with open(os.path.join(dname, "config.json"), "w", encoding="utf8") as f:
+			json.dump({"top_k": 500}, f)
+		shell = make_shell()
+		assert shell.config.top_k == 15
+		out = io.StringIO()
+		shell._warn_config(out)
+		assert out.getvalue().startswith("[warn]") and "500" in out.getvalue()
+		assert saved_top_k(shell) == 500
+
+	def test_no_startup_warning_by_default(self, make_shell):
+		out = io.StringIO()
+		make_shell()._warn_config(out)
+		assert out.getvalue() == ""
+
+
+class TestRagLastCount:
+	def shell_with_hits(self, make_shell, count):
+		shell = make_shell()
+		shell.last_hits = [hit("NOTES", "card {0}".format(i), 0.9 - i * 0.01) for i in range(count)]
+		return shell
+
+	def test_without_n_shows_all(self, make_shell):
+		out = run(self.shell_with_hits(make_shell, 5), "/rag last")
+		assert out.count("DB:notes") == 5 and "件を表示" not in out
+
+	def test_n_limits_in_order(self, make_shell):
+		shell = self.shell_with_hits(make_shell, 5)
+		out = run(shell, "/rag last -n 2")
+		lines = out.splitlines()
+		assert lines[0].startswith("[1]") and shell.last_hits[0].card_id in lines[0]
+		assert lines[1].startswith("[2]") and shell.last_hits[1].card_id in lines[1]
+		assert lines[2] == "(2 / 5 件を表示)" and len(lines) == 3
+
+	@pytest.mark.parametrize("n", [5, 50])
+	def test_n_not_less_than_total(self, make_shell, n):
+		out = run(self.shell_with_hits(make_shell, 5), "/rag last -n {0}".format(n))
+		assert out.count("DB:notes") == 5 and "件を表示" not in out
+
+	@pytest.mark.parametrize("arg", ["0", "abc", "2.5"])
+	def test_invalid_n(self, make_shell, arg):
+		out = run(self.shell_with_hits(make_shell, 5), "/rag last -n " + arg)
+		assert out.startswith("[error]") and "DB:notes" not in out
+
+	def test_negative_n_shows_no_cards(self, make_shell):
+		out = run(self.shell_with_hits(make_shell, 5), "/rag last -n -3")
+		assert out.strip() and "DB:notes" not in out
+
+	def test_no_cards(self, make_shell):
+		shell = make_shell()
+		assert run(shell, "/rag last") == "(no cards referenced)\n"
+		assert run(shell, "/rag last -n 3") == "(no cards referenced)\n"
+
+	def test_does_not_change_top_k(self, make_shell):
+		shell = self.shell_with_hits(make_shell, 5)
+		before = open(config_path(shell), encoding="utf8").read()
+		run(shell, "/rag last -n 2")
+		assert shell.config.top_k == 15
+		assert open(config_path(shell), encoding="utf8").read() == before
+
+
+class TestTopKTools:
+	def test_to_command(self):
+		reg = llm.ToolRegistry()
+		assert reg.to_command("rag_top", {}) == "/rag top"
+		assert reg.to_command("rag_top", {"n": 10}) == "/rag top 10"
+		assert reg.to_command("rag_last", {}) == "/rag last"
+		assert reg.to_command("rag_last", {"n": 3}) == "/rag last -n 3"
+
+	def test_schemas(self):
+		defs = {d["name"]: d for d in llm.ToolRegistry().definitions()}
+		top = defs["rag_top"]["input_schema"]
+		assert top["properties"]["n"] == dict(top["properties"]["n"], type="integer", minimum=1, maximum=100)
+		assert top["required"] == []
+		last = defs["rag_last"]["input_schema"]
+		assert last["properties"]["n"]["type"] == "integer" and last["properties"]["n"]["minimum"] == 1
+		assert last["required"] == []
+
+	def test_approved_tool_changes_value(self, make_shell):
+		shell = make_shell(confirm_answers=[True])
+		shell._search = lambda text, n, dbid, output: []
+		shell.llm.queue({"text": "変更します。", "tool_uses": [("rag_top", {"n": 10})]}, "10 枚にしました。")
+		out = run(shell, "参照するカードを 10 枚にして")
+		assert "/rag top 10" in out
+		assert shell.config.top_k == 10 and saved_top_k(shell) == 10
+		results = shell.llm.calls[1]["messages"][-1]["content"]
+		assert "rag top: 10" in results[0]["content"]
+
+	def test_denied_tool_keeps_value(self, make_shell):
+		shell = make_shell(confirm_answers=[False])
+		shell._search = lambda text, n, dbid, output: []
+		shell.llm.queue({"text": "変更します。", "tool_uses": [("rag_top", {"n": 10})]}, "変更しませんでした。")
+		run(shell, "参照するカードを 10 枚にして")
+		assert shell.config.top_k == 15 and saved_top_k(shell) == 15
+
+	def test_help_lists_commands(self, make_shell):
+		out = run(make_shell(), "/help")
+		assert "/rag top [<n>]" in out and "/rag last [-n <n>]" in out
+		assert "-n 省略時は /rag top の枚数" in out and "参照枚数" in out

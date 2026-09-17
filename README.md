@@ -80,6 +80,8 @@ $llm
 ai>/rag add notes              # DB "NOTES" のカードを RAG に登録
 ai>/rag search 京大式カード     # ベクトル検索
 ai>京大式カードの利点は？        # 関連カードを添えて Claude に質問
+ai>/rag top 30                 # 対話で参照するカードの枚数を変更（1〜100、既定 15）
+ai>/rag last -n 3              # 直前の応答で参照したカードの先頭 3 件
 ai>notes のカード一覧を見せて    # LLM がコマンドを提案 → y/n で許可して実行
 ai>/help
 ai>/quit
