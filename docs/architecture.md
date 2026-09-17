@@ -162,6 +162,11 @@ tot.txt  : 42,46 50,54,-8,60,64                                       # nameGrou
 | `server.log` | 同上 | 接続ログ（JSON 1 行） |
 | `dns.txt` | Home ディレクトリ | `<userid>:<host>` |
 | `*.csm` | 任意（既定 `%USERPROFILE%\Desktop\csmFiles`） | エクスポートされたカード／TOT |
+| `_llm/config.json` | Home ディレクトリ | `llm` シェルの設定（プロバイダ・モデル・検索件数など） |
+| `_llm/system_prompt.txt` | 同上 | `llm` シェルのシステムプロンプト |
+| `_llm/registry.json` | 同上 | RAG 登録済み DB の台帳 |
+| `_llm/chroma/` | 同上 | Chroma `PersistentClient` のベクトル DB（1 レコード = 1 チャンク） |
+| `_llm/history/*.jsonl` | 同上 | 対話履歴（1 セッション = 1 ファイル、1 行 = 1 メッセージ） |
 
 既定のランタイム配置:
 
@@ -201,6 +206,7 @@ tot.txt  : 42,46 50,54,-8,60,64                                       # nameGrou
 | 汎用 DB 拡張 | `select2.py`, `select3.py`, `index.py`（SQLite 索引）, `util.py`, `_file.py`, `dbutil.py` |
 | ドメイン別カード | `book.py`, `bookmeter.py`, `reference_book.py`, `shiori.py`, `review.py`, `study.py`, `category.py`, `userid.py`, `link.py`, `picture.py`, `__profile__.py` |
 | 外部連携／クローラ | `crawl.py`, `wikipedia.py`, `youtube.py`, `__youtube__.py`, `twitter.py`, `instagram.py`, `nichan.py`, `github.py`, `__selenium__.py`, `__site__.py` |
+| AI 対話 | `llm.py`（子シェル `llm`。Voyage AI 埋め込み + Chroma による RAG と Claude との対話。詳細は [cli.md](cli.md) の `llm` 節） |
 | その他 | `mecab.py`, `upload.py`, `happymail.py`, `pcmax.py`, `__binalli__.py` |
 | （削除済み） | 作業用ファイル（`a`, `a.html`, `a.py`, `a_.py`, `h`, `vlc-help.txt`, `*.bu`, `*.swo`）と `_xvideos.py`, `select2_gui.py` は 2026-09-16 に削除 |
 
@@ -214,6 +220,8 @@ tot.txt  : 42,46 50,54,-8,60,64                                       # nameGrou
 | コア | `colorama` | 端末色 |
 | コア | `python-dateutil` | 相対日付 |
 | 拡張 | `crayons`, `beautifulsoup4`, `requests`, `selenium`, `pykakasi`, `googletrans` | 色付きプロンプト、スクレイピング、ブラウザ操作、かな変換、翻訳 |
+| 拡張（`llm`） | `anthropic`（1.2.0）, `voyageai`（0.5.0）, `chromadb`（1.5.9） | Claude との対話、Voyage AI 埋め込み、ローカルベクトル DB。いずれも関数内で遅延 import |
+| 開発 | `pytest`（9.1.1）, `flake8`（7.3.0） | テスト、lint |
 | 標準 | `socketserver`, `selectors`, `threading`, `json`, `pickle`, `sqlite3`, `subprocess`, `_pyio` | サーバー、索引、外部コマンド |
 
 `requirements.txt` は未整備。作者環境（Python 3.12.6）には上記がすべてインストール済み。

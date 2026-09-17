@@ -147,6 +147,20 @@
 | 外部サービス連携（`wikipedia` / `youtube` / `twitter` / `instagram` / `nichan` / `github` / `crawl` / `__selenium__` / `__site__`） | Wikipedia 記事や各種サイトから取得した内容をカード化するクローラ。`crawl` は他ユーザーの Home を巡回して DB をコピーする。 |
 | その他（`mecab` / `upload` / `happymail` / `pcmax` / `dbutil` / `__profile__` / `__binalli__`） | 形態素解析、アップロード、ブラウザ操作シェル、DB ユーティリティ、プロフィール DB、バイナリ埋め込み。 |
 
+### FR-11 AI 対話シェル（`shells/llm.py`）
+
+| ID | 要件 |
+|---|---|
+| FR-11.1 | 拡張 Home シェルから子シェル `llm` として起動でき、`--llm` / `--model` / `--embed` / `--embed-model` で対話用 LLM（既定 Claude `claude-opus-5`）と埋め込みモデル（既定 Voyage AI `voyage-4-large`）を指定できる。設定は `<home>/_llm/config.json`、環境変数（`KYODAISHIKI_LLM_PROVIDER` など）でも変更できる。 |
+| FR-11.2 | シェル内コマンドはすべて `/` で始まる。`/` で始まらない行は LLM への発話、`//` は `/` 始まりの発話のエスケープ。未知の `/xxx` は LLM に送らない。 |
+| FR-11.3 | `/rag add <dbid>...` で DB の全カード（`str(CSM)`）をチャンク分割（既定 1000 トークン、段落 → 行 → 句点 → 文字数）して埋め込み、Chroma に登録する。差分登録（内容ハッシュで変更検出）、ワイルドカード、進捗表示、埋め込みモデル不一致時の警告と全件再登録を行う。 |
+| FR-11.4 | `/rag search` でベクトル検索し、カード単位に集約して全文・ヒットチャンク・スコアを表示する。`-D` で DB 限定、`-n` で件数指定。 |
+| FR-11.5 | 発話のたびに RAG を検索し、関連カードを `<cards>` ブロックとしてプロンプトに含めて LLM に送る（`/rag off` で無効化、`/rag use <db>` で対象限定）。該当なしの場合はその旨を伝える。応答はストリーミング表示し、`/usage` でトークン数、`/rag last` で参照カードを確認できる。 |
+| FR-11.6 | LLM はシェル内コマンド（RAG 操作・設定確認・履歴参照）をツールとして提案できる。実行前に等価なコマンド行を表示して y/n の許可を必ず求め、`y` / `yes` 以外は拒否として LLM に返す。`/sh` `/exec` `/clear` `/quit` `/tools` は提案できない。`/tools off` で無効化。非対話実行では常に拒否。 |
+| FR-11.7 | 対話履歴を `<home>/_llm/history/<セッション>.jsonl` に保存し、`/history ls|show|rm` で参照・削除できる。`/clear` は新しいセッションを開始し、保存済みファイルは消さない。 |
+| FR-11.8 | `python -m _kyodaishiki.shells.llm [--home-dir <dname>] <input>...` で、シェルを起動せずに 1 コマンドまたは 1 発話を処理できる。 |
+| FR-11.9 | 認証情報（`ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN`、`VOYAGE_API_KEY`）が無い場合は該当機能を無効化し、必要な環境変数名を表示する。未対応のプロバイダ名は対応一覧を表示して中止する。 |
+
 ## 5. 非機能要件
 
 | 分類 | 要件 |

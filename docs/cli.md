@@ -189,6 +189,84 @@ set [<key>]
 | `import pkg <dname> [-a]` | パッケージを import。`-a` で配下の全モジュールをエイリアス登録 |
 | `set <key> <value>` / `set [<key>]` | 環境変数の設定／一覧（正規表現で絞り込み） |
 
+## `llm` 子シェル（プロンプト `ai>`、拡張 Home のみ）
+
+カードを RAG（Voyage AI 埋め込み + Chroma）で参照しながら LLM（既定 Claude）と対話する。実装は `_kyodaishiki/shells/llm.py`。
+
+有効化: `_kyodaishiki/` を `sys.path` に置いたうえで、メインシェルでモジュールを import し、`llm` にエイリアスする。Home の `enter.bat` に書いておくと起動時に実行される。
+
+```
+path append C:\Users\USER\kyodaishiki2\code\_kyodaishiki
+path import shells.llm
+alias llm shells.llm
+```
+
+環境変数: `ANTHROPIC_API_KEY`（または `ANTHROPIC_AUTH_TOKEN`）、`VOYAGE_API_KEY`。設定は `<home>/_llm/config.json`、システムプロンプトは `<home>/_llm/system_prompt.txt`。
+
+### 起動（メインシェルから）
+
+```
+llm [--llm <provider>] [--model <model>] [--embed <provider>] [--embed-model <model>] [<input>...]
+```
+
+`<input>` なしで対話シェルを開始。`<input>` があれば 1 回だけ処理して戻る（`/` 始まりはコマンド、それ以外は発話）。
+
+### 入力の分類
+
+| 入力 | 扱い |
+|---|---|
+| `/` で始まる行 | シェル内コマンド |
+| `//` で始まる行 | 先頭の `/` を 1 つ除いた発話 |
+| 未知の `/xxx` | エラー表示（LLM には送らない） |
+| それ以外 | LLM への発話。毎回 RAG でカードを検索し、プロンプトに含めて送る |
+
+LLM がシェル内コマンドの実行を提案した場合は、等価なコマンド行を表示して `実行しますか? (y/n)` を求める。`y` / `yes` 以外はすべて拒否。
+
+### シェル内コマンド
+
+```
+/rag add <dbid>...
+/rag (rm|remove) <dbid>...
+/rag (ls|list)
+/rag (s|search) [(-D <db>)] [(-n <n>)] <query>...
+/rag (on|off)
+/rag use [<db>]
+/rag last
+/model
+/usage
+/tools (on|off)
+/clear
+/history (ls|list)
+/history show <id>
+/history (rm|remove) <id>
+/help
+/quit
+```
+
+| コマンド | 説明 |
+|---|---|
+| `/rag add <dbid>...` | DB の全カード（`str(CSM)`）を埋め込んでベクトル DB に登録。差分登録、`*` ワイルドカード可、進捗表示 |
+| `/rag rm <dbid>...` | DB を RAG から削除 |
+| `/rag ls` | 登録済み DB（件数・チャンク数・更新日時・埋め込みモデル）。現在のモデルと異なる行に `!` |
+| `/rag search` | ベクトル検索。カード単位に集約し、全文・ヒットチャンク・スコアを表示 |
+| `/rag on` / `/rag off` | 対話時の自動検索の有効／無効（`config.json` に保存） |
+| `/rag use [<db>]` | 対話時の検索対象 DB を限定。引数なしで解除 |
+| `/rag last` | 直前の応答で参照したカード一覧 |
+| `/model` | 対話用 LLM と埋め込みモデル、認証情報の有無 |
+| `/usage` | トークン使用量（直前／セッション累計） |
+| `/tools on` / `/tools off` | LLM からのコマンド提案（ツール呼び出し）の有効／無効 |
+| `/clear` | メモリ上の対話履歴を破棄し、新しい履歴ファイルを開始（保存済みは残る） |
+| `/history ls` / `show <id>` / `rm <id>` | `<home>/_llm/history/*.jsonl` の一覧・表示・削除 |
+| `/exec` `/map` `/xargs` `/sh` `/alias` | 共通コマンド（`/` 付きで使う） |
+
+### 非対話実行
+
+```
+python -m _kyodaishiki.shells.llm [--home-dir <dname>] [--llm <provider>] [--model <model>] [--embed <provider>] [--embed-model <model>] <input>...
+```
+
+`--home-dir` の既定は `%KYODAISHIKI_LOADER_HOME%\MAIN`。LLM が提案したコマンドはすべて自動的に拒否される。Git Bash から実行する場合は `/rag` などがパスに変換されるため、PowerShell / cmd から実行するか `MSYS_NO_PATHCONV=1` を付ける。
+
 ## 拡張 DB シェル（`shells/select2.py` 系）— 参考
 
 `loader.conf` で拡張 Home を指定した場合、DB シェルは `select2.DBShell` などに置き換わり、以下のような拡張コマンドが加わる（詳細は各モジュールの `Docs` クラスを参照）。
