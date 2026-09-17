@@ -31,7 +31,7 @@
 AWS Kiro の Steering / Specs / Agent Hooks の考え方を `.kiro/` 配下で再現する。
 
 - [.kiro/steering/](.kiro/steering/) — 常時参照される永続的なプロジェクトコンテキスト（product.md / tech.md / structure.md）。詳細は `docs/` にあり、steering からはリンクのみ行う。
-- `.kiro/specs/` — 機能ごとの requirements.md → design.md → tasks.md。**現時点では未作成**。新機能や既存機能の大きな変更に着手する際は、実装より先に `.kiro/specs/<feature-slug>/` を作成してから進めること。
+- `.kiro/specs/` — 機能ごとの requirements.md → design.md → tasks.md。ローカルのみで管理し Git には含めない（`.gitignore` で除外）。新機能や既存機能の大きな変更に着手する際は、実装より先に `.kiro/specs/<feature-slug>/` を作成してから進めること。
 - `.kiro/hooks/` — イベント駆動の自動化。**現時点では未作成**（`.claude/settings.json` も未設定）。
 
 ## 作業ログ
@@ -63,6 +63,6 @@ Claude Code とのやり取りではコンテキスト消費（トークン使�
 - コアのインデントは**タブ**で統一されている。編集時は既存ファイルのインデント（タブ）に合わせること。`shells/` の一部にスペース混在があるが、そちらも既存に合わせる。
 - コアと `shells/` は `from _kyodaishiki import __shell__` のようにパッケージ名を固定して参照している。パッケージ名 `_kyodaishiki` を変更する場合は `shells/` 全体の import も追随が必要。
 - `_kyodaishiki/` はかつて独立したリポジトリ（origin: `https://github.com/tetsuya111/kyodaishiki`）だった。入れ子の `.git` は 2026-09-16 に取り除き、現在はルートリポジトリで通常ディレクトリとして追跡している。旧履歴（1 コミット）が必要な場合は上記 origin を参照する。
-- 自動テストは存在しない。動作確認は `python -c "import _kyodaishiki"` による import チェックと、`python _main.py` での対話シェル起動で行う。対話シェルは `%USERPROFILE%\kyodaishiki2\default_loader_home` にディレクトリを作成し、`127.0.0.1:10000`（Home サーバー）と `127.0.0.1:31103`（DNS）を bind しようとするため、確認目的で不用意に起動しない。
+- 自動テストは `tests/`（pytest、現時点では `shells/llm.py` のみ対象）にある。`pytest` で実行し、実 API は呼ばずフェイクプロバイダを使う。それ以外のコードの動作確認は `python -c "import _kyodaishiki"` による import チェックと、`python _main.py` での対話シェル起動で行う。対話シェルは `%USERPROFILE%\kyodaishiki2\default_loader_home` にディレクトリを作成し、`127.0.0.1:10000`（Home サーバー）と `127.0.0.1:31103`（DNS）を bind しようとするため、確認目的で不用意に起動しない。
 - 依存ライブラリは `requirements.txt` が存在せず、現在の環境に手動インストールされている（一覧は [docs/architecture.md](docs/architecture.md) の依存関係を参照）。依存を追加する場合はドキュメントも更新すること。
 - `__pycache__/`、`*.pyc`、`*.swo`、`*.bu` は `.gitignore` で除外している。作業用の一時ファイルを `shells/` に置かないこと（置いた場合は仕様の根拠にしない）。
